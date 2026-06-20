@@ -14,7 +14,8 @@ pub async fn init_db(database_url: &str) -> Result<SqlitePool, Box<dyn std::erro
             owner_name TEXT NOT NULL,
             owner_phone TEXT NOT NULL,
             created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
+            updated_at TEXT NOT NULL,
+            deleted_at TEXT
         )
         "#,
     )
@@ -34,12 +35,27 @@ pub async fn init_db(database_url: &str) -> Result<SqlitePool, Box<dyn std::erro
             veterinarian TEXT NOT NULL,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
+            deleted_at TEXT,
             FOREIGN KEY (pet_id) REFERENCES pets(id) ON DELETE CASCADE
         )
         "#,
     )
     .execute(&pool)
     .await?;
+
+    sqlx::query(
+        "ALTER TABLE medical_records ADD COLUMN deleted_at TEXT",
+    )
+    .execute(&pool)
+    .await
+    .ok();
+
+    sqlx::query(
+        "ALTER TABLE pets ADD COLUMN deleted_at TEXT",
+    )
+    .execute(&pool)
+    .await
+    .ok();
 
     sqlx::query(
         r#"
@@ -52,6 +68,14 @@ pub async fn init_db(database_url: &str) -> Result<SqlitePool, Box<dyn std::erro
     sqlx::query(
         r#"
         CREATE INDEX IF NOT EXISTS idx_medical_records_visit_date ON medical_records(visit_date DESC)
+        "#,
+    )
+    .execute(&pool)
+    .await?;
+
+    sqlx::query(
+        r#"
+        CREATE INDEX IF NOT EXISTS idx_medical_records_deleted_at ON medical_records(deleted_at)
         "#,
     )
     .execute(&pool)

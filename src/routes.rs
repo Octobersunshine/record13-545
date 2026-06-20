@@ -1,9 +1,9 @@
 use crate::handlers::{
-    create_medical_record, create_pet, get_medical_record, get_pet,
-    health_check, list_medical_records_by_pet,
+    create_medical_record, create_pet, delete_medical_record, get_medical_record, get_pet,
+    health_check, list_medical_records_by_pet, purge_medical_record,
 };
 use crate::repository::Repository;
-use axum::routing::{get, post};
+use axum::routing::{delete, get, post};
 use axum::Router;
 
 pub fn create_router(repo: Repository) -> Router {
@@ -13,6 +13,8 @@ pub fn create_router(repo: Repository) -> Router {
         .route("/pets/:id", get(get_pet))
         .route("/medical-records", post(create_medical_record))
         .route("/medical-records/:id", get(get_medical_record))
+        .route("/medical-records/:id", delete(delete_medical_record))
+        .route("/medical-records/:id/purge", delete(purge_medical_record))
         .route(
             "/pets/:pet_id/medical-records",
             get(list_medical_records_by_pet),
