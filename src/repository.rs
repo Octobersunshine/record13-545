@@ -6,6 +6,8 @@ use chrono::Utc;
 use sqlx::{SqlitePool, Row};
 use uuid::Uuid;
 
+use crate::pdf::MedicalRecordPdfData;
+
 #[derive(Clone)]
 pub struct Repository {
     pool: SqlitePool,
@@ -271,5 +273,28 @@ impl Repository {
             page_size,
             total_pages,
         })
+    }
+
+    pub async fn get_medical_record_pdf_data(
+        &self,
+        record_id: Uuid,
+    ) -> Result<Option<MedicalRecordPdfData>, sqlx::Error> {
+        let record = self.get_medical_record_by_id(record_id, false).await?;
+
+        match record {
+            Some(record) => {
+                if record.is_deleted() {
+                    return Ok(None);
+                }
+
+                let pet = self.get_pet_by_id(record.pet_id).await?;
+
+                match pet {
+                    Some(pet) => Ok(Some(MedicalRecordPdfData { pet, record })),
+                    None => Ok(None),
+                }
+            }
+            None => Ok(None),
+        }
     }
 }

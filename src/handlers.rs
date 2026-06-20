@@ -2,10 +2,12 @@ use crate::models::{
     CreateMedicalRecordRequest, CreatePetRequest, DeleteResponse, MedicalRecord,
     PaginatedResponse, PaginationQuery, Pet, PurgeResponse, SanitizedMedicalRecord,
 };
+use crate::pdf::generate_medical_record_pdf;
 use crate::repository::Repository;
+use axum::body::Body;
 use axum::extract::{Path, Query, State};
-use axum::http::StatusCode;
-use axum::response::{IntoResponse, Json};
+use axum::http::{header, StatusCode};
+use axum::response::{IntoResponse, Json, Response};
 use uuid::Uuid;
 
 pub async fn create_pet(
@@ -133,4 +135,40 @@ pub async fn purge_medical_record(
 
 pub async fn health_check() -> StatusCode {
     StatusCode::OK
+}
+
+pub async fn download_medical_record_pdf(
+    State(repo): State<Repository>,
+    Path(id): Path<Uuid>,
+) -> Result<Response, StatusCode> {
+    let pdf_data = repo
+        .get_medical_record_pdf_data(id)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    match pdf_data {
+        Some(data) => {
+            let pdf_bytes = generate_medical_record_pdf(&data)
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+            let filename = format!(
+                "medical_record_{}_{}.pdf",
+                data.pet.name,
+                data.record.visit_date.format("%Y%m%d")
+            );
+
+            let body = Body::from(pdf_bytes);
+
+            Response::builder()
+                .status(StatusCode::OK)
+                .header(header::CONTENT_TYPE, "application/pdf")
+                .header(
+                    header::CONTENT_DISPOSITION,
+                    format!("attachment; filename=\"{}\"", filename),
+                )
+                .body(body)
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
+        }
+        None => Err(StatusCode::NOT_FOUND),
+    }
 }
